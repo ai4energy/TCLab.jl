@@ -14,8 +14,8 @@ function Labtime()
     lastsleep = 0.0
     return Labtime(realtime, labtime, rate, running, lastsleep)
 end
-
-function tclabtime(lt::Labtime)
+import Base.time
+function time(lt::Labtime)
     if lt.running
         elapsed = time() - lt.realtime
         return lt.labtime + lt.rate * elapsed

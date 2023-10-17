@@ -12,9 +12,7 @@ end
 
 """Locates Arduino and returns port and device."""
 function find_arduino()
-
-
-## 使用下面的函数组合，判断哪个是目标端口，返回port和arduino信息
+    # 使用下面的函数组合，判断哪个是目标端口，返回port和arduino信息
     # LibSerialPort.close(sp)
     # spp = LibSerialPort.sp_get_port_by_name("COM7")
     # LibSerialPort.sp_get_port_name(spp)
@@ -30,13 +28,6 @@ function find_arduino()
     return "COM7", "Arduino Uno (COM7)"
 end
 
-find_arduino()
-list_ports()
-sp = LibSerialPort.open("COM7", 9600)
-write(sp, "VER\n")
-sleep(0.1)
-println(readline(sp))
-LibSerialPort.close(sp)
 
 
 

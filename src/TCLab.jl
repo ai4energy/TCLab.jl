@@ -29,6 +29,15 @@ mutable struct TCLab
     sp::SerialPort
 end
 
+port, arduino = find_arduino()
+# find_arduino()
+# list_ports()
+# sp = LibSerialPort.open("COM7", 9600)
+# write(sp, "VER\n")
+# sleep(3)
+# println(readline(sp))
+# LibSerialPort.close(sp)
+
 # Constructor
 function TCLab(port::String = "", debug::Bool = false)
     _connected = false
@@ -174,7 +183,32 @@ U1(tclab::TCLab, val::Float64) = Q1(tclab, val)
 U2(tclab::TCLab) = Q2(tclab)
 U2(tclab::TCLab, val::Float64) = Q2(tclab, val)
 
+"""
+Establish a connection to the Arduino.
 
+baud: baud rate
+"""
+function connect(tclab::TCLab)
+
+    global _connected
+
+    if _connected
+        print("You already have an open connection")
+    end
+
+    _connected = true
+
+    tclab.sp = LibSerialPort.open(tclab.port,tclab.baud)
+    sleep(2)
+    
+# find_arduino()
+# list_ports()
+# sp = LibSerialPort.open("COM7", 9600)
+# write(sp, "VER\n")
+# sleep(3)
+# println(readline(sp))
+# LibSerialPort.close(sp)
+end
 
 
 
