@@ -5,21 +5,20 @@ include("version.jl")
 include("utils.jl")
 
 
-const sep = ' '  # command/value separator in TCLab firmware
+const sep = ' '
 
 arduinos = [
-    ("USB VID:PID=16D0:0613", "Arduino Uno"),
-    ("USB VID:PID=1A86:7523", "NHduino"),
-    ("USB VID:PID=2341:8036", "Arduino Leonardo"),
-    ("USB VID:PID=2A03", "Arduino.org device"),
-    ("USB VID:PID", "unknown device")
+    ("USB VID:PID=16D0:0613", "Arduino Uno")
 ]
 
 _sketchurl = "https://github.com/jckantor/TCLab-sketch"
 _connected = false
 
 
-mutable struct TCLab
+"""
+TCLab Digital Twin
+"""
+mutable struct TCLabDT
     debug::Bool
     port::String
     arduino::String
@@ -39,6 +38,13 @@ port, arduino = find_arduino()
 # LibSerialPort.close(sp)
 
 # Constructor
+
+function TCLabDT(; debug::Bool=false, port::String="COM5", arduino::String="Arduino Uno", baud::Int=9600, _P1::Float64=0.0, _P2::Float64=0.0)
+    sp = LibSerialPort.open(port, baud)
+    return TCLabDT(debug, port, arduino, baud, _P1, _P2, sp)
+end
+
+#= 
 function TCLab(port::String = "", debug::Bool = false)
     _connected = false
     print("TCLab version ", __version__)
@@ -86,10 +92,10 @@ function TCLab(port::String = "", debug::Bool = false)
               ]
     
     return new(debug, port, arduino, baud, _P1, _P2, sp)
-end
+end =#
 
-function close(tclab::TCLab)
-       Q1(tclab, 0)
+function close(tclab::TCLabDT)
+    Q1(tclab, 0)
     Q2(tclab, 0)
     send_and_receive(tclab, "X")
     close(tclab.sp)
@@ -97,7 +103,7 @@ function close(tclab::TCLab)
     println("TCLab disconnected successfully.")
 end
 
-function send(tclab::TCLab, msg::String)
+function send(tclab::TCLabDT, msg::String)
     write(tclab.sp, msg * "\r\n")
     if tclab.debug
         println("Sent: \"$msg\"")
@@ -105,7 +111,7 @@ function send(tclab::TCLab, msg::String)
     flush(tclab.sp)
 end
 
-function receive(tclab::TCLab)
+function receive(tclab::TCLabDT)
     msg = readline(tclab.sp)
     if tclab.debug
         println("Return: \"$msg\"")
@@ -113,43 +119,53 @@ function receive(tclab::TCLab)
     return msg
 end
 
-function send_and_receive(tclab::TCLab, msg::String, convert=parse)
+function send_and_receive(tclab::TCLabDT, msg::AbstractString, convert::Type{T}=Float64) where {T}
     send(tclab, msg)
-    return convert(receive(tclab))
+    response = receive(tclab)
+    return parse(T, response)    
 end
 
-function LED(tclab::TCLab, val=100)
+function send_and_receive(tclab::TCLabDT, msg::AbstractString)
+    send(tclab, msg)
+    response = receive(tclab)
+    return response
+end
+
+function LED(tclab::TCLabDT, val=100)
     return send_and_receive(tclab, command("LED", val), Float64)
 end
 
 # Properties
-function T1(tclab::TCLab)
+function T1(tclab::TCLabDT)
     return send_and_receive(tclab, "T1", Float64)
 end
 
-function T2(tclab::TCLab)
+function T2(tclab::TCLabDT)
     return send_and_receive(tclab, "T2", Float64)
 end
 
+
 # Define P1 and P2 as properties
-function P1(tclab::TCLab)
+function P1(tclab::TCLabDT)
     return tclab._P1
 end
 
-function P1(tclab::TCLab, val::Float64)
+function P1(tclab::TCLabDT, val::Float64)
     tclab._P1 = send_and_receive(tclab, command("P1", val, 0, 255), Float64)
 end
 
-function P2(tclab::TCLab)
+
+function P2(tclab::TCLabDT)
     return tclab._P2
 end
 
-function P2(tclab::TCLab, val::Float64)
+function P2(tclab::TCLabDT, val::Float64)
     tclab._P2 = send_and_receive(tclab, command("P2", val, 0, 255), Float64)
 end
 
+
 # Functions for Q1 and Q2
-function Q1(tclab::TCLab, val::Union{Float64, Nothing,Int64}=nothing)
+function Q1(tclab::TCLabDT, val::Union{Float64, Nothing,Int64}=nothing)
     if isnothing(val)
         msg = "R1"
     else
@@ -158,7 +174,7 @@ function Q1(tclab::TCLab, val::Union{Float64, Nothing,Int64}=nothing)
     return send_and_receive(tclab, msg, Float64)
 end
 
-function Q2(tclab::TCLab ,val::Union{Float64, Nothing,Int64}=nothing)
+function Q2(tclab::TCLabDT ,val::Union{Float64, Nothing,Int64}=nothing)
     if isnothing(val)
         msg = "R2"
     else
@@ -168,7 +184,7 @@ function Q2(tclab::TCLab ,val::Union{Float64, Nothing,Int64}=nothing)
 end
 
 # Define scan function
-function scan(tclab::TCLab)
+function scan(tclab::TCLabDT)
     T1_val = T1(tclab)
     T2_val = T2(tclab)
     Q1_val = Q1(tclab)
@@ -177,11 +193,11 @@ function scan(tclab::TCLab)
 end
 
 # Define properties for U1 and U2
-U1(tclab::TCLab) = Q1(tclab)
-U1(tclab::TCLab, val::Float64) = Q1(tclab, val)
+U1(tclab::TCLabDT) = Q1(tclab)
+U1(tclab::TCLabDT, val::Float64) = Q1(tclab, val)
 
-U2(tclab::TCLab) = Q2(tclab)
-U2(tclab::TCLab, val::Float64) = Q2(tclab, val)
+U2(tclab::TCLabDT) = Q2(tclab)
+U2(tclab::TCLabDT, val::Float64) = Q2(tclab, val)
 
 """
 Establish a connection to the Arduino.
@@ -209,7 +225,7 @@ baud: baud rate
 # # LibSerialPort.close(sp)
 # end
 
-function connect(obj::TCLab,arduino::String,baud::Int)
+function connect(obj::TCLabDT,arduino::String,baud::Int)
     """
     Establish a connection to the Arduino
 
@@ -228,5 +244,7 @@ function connect(obj::TCLab,arduino::String,baud::Int)
     Q1(obj, 0.0)  # fails if not connected
     obj.baud = baud
 end
+
+export TCLabDT
 
 end # module TCLab

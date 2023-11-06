@@ -25,7 +25,7 @@ function find_arduino()
     # LibSerialPort.get_port_settings(sp.ref)
     # LibSerialPort.print_port_settings(sp.ref)
     # LibSerialPort.get_port_list()
-    return "COM7", "Arduino Uno (COM7)"
+    return "COM5", "Arduino Uno (COM5)"
 end
 
 function tclab_print_port_metadata(port::LibSerialPort.Port; show_config::Bool=true)
