@@ -32,7 +32,7 @@ end
 port, arduino = find_arduino()
 # find_arduino()
 # list_ports()
-# sp = LibSerialPort.open("COM7", 9600)
+ # sp = LibSerialPort.open("COM7", 9600)
 # write(sp, "VER\n")
 # sleep(3)
 # println(readline(sp))
@@ -45,7 +45,7 @@ function TCLab(port::String = "", debug::Bool = false)
     port, arduino = find_arduino(port)
     if port == nothing
         throw(RuntimeError("No Arduino device found."))
-    end
+    end  
 
     try
         connect(TCLab, arduino, 115200)
@@ -89,7 +89,7 @@ function TCLab(port::String = "", debug::Bool = false)
 end
 
 function close(tclab::TCLab)
-    Q1(tclab, 0)
+       Q1(tclab, 0)
     Q2(tclab, 0)
     send_and_receive(tclab, "X")
     close(tclab.sp)
@@ -149,7 +149,7 @@ function P2(tclab::TCLab, val::Float64)
 end
 
 # Functions for Q1 and Q2
-function Q1(tclab::TCLab, val::Union{Float64, Nothing}=nothing)
+function Q1(tclab::TCLab, val::Union{Float64, Nothing,Int64}=nothing)
     if isnothing(val)
         msg = "R1"
     else
@@ -158,7 +158,7 @@ function Q1(tclab::TCLab, val::Union{Float64, Nothing}=nothing)
     return send_and_receive(tclab, msg, Float64)
 end
 
-function Q2(tclab::TCLab, val::Union{Float64, Nothing}=nothing)
+function Q2(tclab::TCLab ,val::Union{Float64, Nothing,Int64}=nothing)
     if isnothing(val)
         msg = "R2"
     else
@@ -188,32 +188,45 @@ Establish a connection to the Arduino.
 
 baud: baud rate
 """
-function connect(tclab::TCLab)
+# function connect(tclab::TCLab,port::String,baud::Int64)
 
+#     global _connected
+
+#     if _connected
+#         print("You already have an open connection")
+#     end
+
+#     _connected = true
+#     tclab.sp = LibSerialPort.open(port,baud)
+#     sleep(2)
+    
+# # find_arduino()
+# # list_ports()
+# # sp = LibSerialPort.open("COM7", 9600)
+# # write(sp, "VER\n")
+# # sleep(3)
+# # println(readline(sp))
+# # LibSerialPort.close(sp)
+# end
+
+function connect(obj::TCLab,arduino::String,baud::Int)
+    """
+    Establish a connection to the Arduino
+
+    baud: baud rate
+    """
     global _connected
 
     if _connected
-        print("You already have an open connection")
+        error("You already have an open connection")
     end
 
     _connected = true
-
-    tclab.sp = LibSerialPort.open(tclab.port,tclab.baud)
-    sleep(2)
     
-# find_arduino()
-# list_ports()
-# sp = LibSerialPort.open("COM7", 9600)
-# write(sp, "VER\n")
-# sleep(3)
-# println(readline(sp))
-# LibSerialPort.close(sp)
+    LibSerialPort.open(obj.sp)
+    sleep(2)
+    Q1(obj, 0.0)  # fails if not connected
+    obj.baud = baud
 end
-
-
-
-
-
-
 
 end # module TCLab

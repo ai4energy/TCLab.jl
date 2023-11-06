@@ -28,9 +28,33 @@ function find_arduino()
     return "COM7", "Arduino Uno (COM7)"
 end
 
+function tclab_print_port_metadata(port::LibSerialPort.Port; show_config::Bool=true)
+    println("\nPort name:\t",       LibSerialPort.Lib.sp_get_port_name(port))
+    transport = LibSerialPort.Lib.sp_get_port_transport(port)
+    print("\nPort transport:\t");
+    if transport == LibSerialPort.SP_TRANSPORT_NATIVE
+        println("native serial port")
+    elseif transport == LibSerialPort.SP_TRANSPORT_USB
+        println("USB")
+        println("Manufacturer:\t",      LibSerialPort.Lib.sp_get_port_usb_manufacturer(port))
+        println("Product:\t",           LibSerialPort.Lib.sp_get_port_usb_product(port))
+        println("USB serial number:\t", LibSerialPort.Lib.sp_get_port_usb_serial(port))
+        bus, addr = LibSerialPort.Lib.sp_get_port_usb_bus_address(port)
+        println("USB bus #:\t", bus)
+        println("Address on bus:\t", addr)
+        vid, pid = LibSerialPort.Lib.sp_get_port_usb_vid_pid(port)
+        println("Vendor ID:\t", vid)
+        println("Product ID:\t", pid)
+    elseif transport == LibSerialPort.SP_TRANSPORT_BLUETOOTH
+        println("Bluetooth")
+        println("Bluetooth address:\t", LibSerialPort.Lib.sp_get_port_bluetooth_address(port))
+    end
 
-
-
+    if show_config
+        LibSerialPort.print_port_settings(port)
+    end
+    return nothing
+end
 
 
 
