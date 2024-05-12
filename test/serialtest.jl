@@ -69,4 +69,5 @@ end
 #---------------------------------------
 # 以下调用自己写的函数
 #---------------------------------------
-tclab_print_port_metadata(sp.ref)
+port_info=get_port_metadata(sp.ref)
+println(port_info)
