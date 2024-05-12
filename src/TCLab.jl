@@ -1,5 +1,5 @@
 module TCLab
-using LibSerialPort, Random
+using LibSerialPort, Random, Dates, UTCDateTimes
 const __version__ = "0.1.0"
 
 const sep = ' ' # command/value separator in TCLab firmware
@@ -282,7 +282,7 @@ function close(model::TCLabModel)
     println("TCLab Model disconnected successfully.")
 end
 
-using Dates
+#using Dates
 
 function update!(model::TCLabModel, t::DateTime=nothing)
     if isnothing(t)
