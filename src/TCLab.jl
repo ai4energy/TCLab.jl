@@ -138,19 +138,24 @@ function receive(tclab::TCLabDT)
     return msg
 end
 
-function send_and_receive(tclab::TCLabDT, msg::AbstractString, convert::Type{T}=Float64) where {T}
-    send(tclab, msg)
-    response = receive(tclab)
-    return parse(T, response)
-end
 """
-用于模拟从Arduino接收数据和发送命令的方法
+用于从Arduino接收数据和发送命令的方法
 """
-function send_and_receive(tclab::TCLabDT, msg::AbstractString)
+function send_and_receive(tclab::TCLabDT, msg::AbstractString, target_type::Union{Type{T}, Nothing}=nothing) where T
     send(tclab, msg)
-    sleep(1)
+    sleep(1.0)
     response = receive(tclab)
-    return response
+    if isnothing(target_type)
+        return response  # 如果没有提供 target_type，返回原始响应
+    else
+        try
+            return parse(T, response)  # 尝试解析响应为指定类型
+        catch error
+            error_msg = "Failed to parse response '$response' as type $T: $error"
+            @error error_msg
+            throw(ArgumentError(error_msg))
+        end
+    end
 end
 
 function LED(tclab::TCLabDT, val=100)
@@ -185,8 +190,6 @@ function P2(tclab::TCLabDT, val::Float64)
     tclab._P2 = send_and_receive(tclab, command("P2", val, 0, 255), Float64)
 end
 
-
-# Functions for Q1 and Q2
 function Q1(tclab::TCLabDT, val::Union{Float64,Nothing,Int64}=nothing)
     if isnothing(val)
         msg = "R1"
