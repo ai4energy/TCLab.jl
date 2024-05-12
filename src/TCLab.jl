@@ -1,5 +1,16 @@
 module TCLab
 using LibSerialPort
+const __version__ = "0.1.0"
+
+const sep = ' ' # command/value separator in TCLab firmware
+
+const arduinos = [
+    ((9025, 67), "Arduino Uno"),
+]
+
+const sketchurl = "https://github.com/jckantor/TCLab-sketch"
+global _connected = false
+
 
 include("utils.jl")
 
@@ -17,19 +28,17 @@ mutable struct TCLabDT
 end
 
 function TCLabDT(; debug::Bool=false)
-    debug=false
+    debug = false
     port, arduino = find_arduino()
     baud = 19200
-    _P1=10.0
-    _P2=10.0
-    sp = LibSerialPort.SerialPort("COM3")
+    _P1 = 10.0
+    _P2 = 10.0
+    sp = LibSerialPort.SerialPort(port)
     LibSerialPort.open(sp)
     LibSerialPort.isopen(sp)
     LibSerialPort.close(sp)
     TCLabDT(debug, port, arduino, baud, _P1, _P2, sp)
 end
-
-tclab=TCLabDT()
 
 """
 用于模拟从Arduino接收数据和发送命令的方法
@@ -88,6 +97,34 @@ function TCLab(port::String = "", debug::Bool = false)
 
     return new(debug, port, arduino, baud, _P1, _P2, sp)
 end =#
+
+function connect!(tclab::TCLabDT, baud::Int)
+    if _connected
+        throw(AlreadyConnectedError("You already have an open connection"))
+    end
+
+    try
+        tclab.sp = LibSerialPort.open(tclab.port, baud)  # 打开指定端口
+        sleep(2)  # 等待硬件响应
+        #Q1(tclab, 0)  # 发送初始化命令，失败时应处理错误
+        global _connected = true
+    catch e
+        global _connected = false  # 确保连接状态被重置
+        rethrow(e)  # 重新抛出异常以便调用者处理
+    end
+end
+
+function Q1(tclab::TCLabDT, value::Int)
+    send_and_receive(tclab, "Q1 $(value)")
+end
+
+# 需要一个发送和接收函数
+function send_and_receive(tclab::TCLabDT, command::String)
+    write(tclab.sp, command * "\r\n")
+    sleep(1)  # 等待设备处理命令
+    return readline(tclab.sp)  # 读取响应
+end
+
 
 function close(tclab::TCLabDT)
     Q1(tclab, 0)
@@ -193,55 +230,6 @@ U1(tclab::TCLabDT, val::Float64) = Q1(tclab, val)
 
 U2(tclab::TCLabDT) = Q2(tclab)
 U2(tclab::TCLabDT, val::Float64) = Q2(tclab, val)
-
-"""
-Establish a connection to the Arduino.
-
-baud: baud rate
-"""
-# function connect(tclab::TCLab,port::String,baud::Int64)
-
-#     global _connected
-
-#     if _connected
-#         print("You already have an open connection")
-#     end
-
-#     _connected = true
-#     tclab.sp = LibSerialPort.open(port,baud)
-#     sleep(2)
-
-# # find_arduino()
-# # list_ports()
-# # sp = LibSerialPort.open("COM7", 9600)
-# # write(sp, "VER\n")
-# # sleep(3)
-# # println(readline(sp))
-# # LibSerialPort.close(sp)
-# end
-
-function connect(obj::TCLabDT, arduino::String, baud::Int)
-    """
-    Establish a connection to the Arduino
-
-    baud: baud rate
-    """
-    global _connected
-
-    if _connected
-        error("You already have an open connection")
-    end
-
-    _connected = true
-
-    LibSerialPort.open(obj.sp)
-    sleep(2)
-    Q1(obj, 0.0)  # fails if not connected
-    obj.baud = baud
-end
-
-include("labtime.jl")
-
 
 export TCLabDT
 

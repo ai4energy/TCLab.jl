@@ -1,5 +1,3 @@
-const __version__ = "0.1.0"
-
 function get_port_metadata(port::LibSerialPort.Port; show_config::Bool=true)
     port_info = Dict{String,Any}()
     port_info["Port name"] = LibSerialPort.sp_get_port_name(port)
@@ -57,15 +55,6 @@ function get_port_metadata(port_name::String; show_config::Bool=true, baudrate::
     return port_info
 end
 
-const sep = ' ' # command/value separator in TCLab firmware
-
-const arduinos = [
-    ((9025, 67), "Arduino Uno"),
-]
-
-const sketchurl = "https://github.com/jckantor/TCLab-sketch"
-_connected = false
-
 """Limit value to be between lower and upper limits"""
 function clip(val; lower=0, upper=100)
     return max(lower, min(val, upper))
@@ -105,10 +94,9 @@ function find_arduino()
             end
         end
     end
-    println("--- Serial Ports ---")
+    println("--- No Arduino Found in These Serial Port(s) ---")
     for port in ports
-        println("Port name: ", LibSerialPort.sp_get_port_name(port))
-        # 额外的端口信息打印，如果需要的话
+        println("Port name: ", port)
     end
     return nothing, nothing
 end
