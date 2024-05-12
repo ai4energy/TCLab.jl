@@ -1,5 +1,5 @@
 module TCLab
-using LibSerialPort
+using LibSerialPort, Random
 const __version__ = "0.1.0"
 
 const sep = ' ' # command/value separator in TCLab firmware
@@ -247,6 +247,238 @@ U1(tclab::TCLabDT, val::Real) = Q1(tclab, val)
 U2(tclab::TCLabDT) = Q2(tclab)
 U2(tclab::TCLabDT, val::Real) = Q2(tclab, val)
 
+
+mutable struct TCLabModel
+    debug::Bool
+    synced::Bool
+    Ta::Float64  # ambient temperature
+#    tstart::DateTime  # start time
+#    tlast::DateTime  # last update time
+    _P1::Float64  # max power heater 1
+    _P2::Float64  # max power heater 2
+    _Q1::Float64  # initial heater 1 power
+    _Q2::Float64  # initial heater 2 power
+    _T1::Float64  # temperature thermistor 1
+    _T2::Float64  # temperature thermistor 2
+    _H1::Float64  # temperature heater 1
+    _H2::Float64  # temperature heater 2
+ #   maxstep::Float64  # maximum time step for integration
+
+   # TCLabModel(; debug::Bool=false, synced::Bool=true) = new(debug, synced, 21.0, now(), now(), 200.0, 100.0, 0.0, 0.0, 21.0, 21.0, 21.0, 21.0, 0.2)
+end
+
+# Initialization and debug prints
+# function init_lab(model::TCLabModel)
+#     println("TCLab version ", __version__)
+#     println("Simulated TCLab")
+#     model.tstart = now()
+#     model.tlast = model.tstart
+# end
+
+function close(model::TCLabModel)
+    # 设置加热器功率为0，模拟关闭加热器
+    Q1(model, 0)
+    Q2(model, 0)
+    println("TCLab Model disconnected successfully.")
+end
+
+using Dates
+
+function update!(model::TCLabModel, t::DateTime=nothing)
+    if isnothing(t)
+        if model.synced
+            model.tnow = now() - model.tstart
+        else
+            return
+        end
+    else
+        model.tnow = t
+    end
+
+    teuler = model.tlast
+    while teuler < model.tnow
+        dt = min(model.maxstep, (model.tnow - teuler) / Millisecond(1) / 1000)  # Convert milliseconds to seconds
+        DeltaTaH1 = model.Ta - model._H1
+        DeltaTaH2 = model.Ta - model._H2
+        DeltaT12 = model._H1 - model._H2
+        dH1 = model._P1 * model._Q1 / 5720 + DeltaTaH1 / 20 - DeltaT12 / 100
+        dH2 = model._P2 * model._Q2 / 5720 + DeltaTaH2 / 20 + DeltaT12 / 100
+        dT1 = (model._H1 - model._T1) / 140
+        dT2 = (model._H2 - model._T2) / 140
+
+        model._H1 += dt * dH1
+        model._H2 += dt * dH2
+        model._T1 += dt * dT1
+        model._T2 += dt * dT2
+        teuler += Dates.Millisecond(dt * 1000)  # Convert seconds back to datetime
+    end
+
+    model.tlast = model.tnow
+end
+
+"""
+Simulate flashing TCLab LED
+val : specified brightness (default 100).
+"""
+function LED(model::TCLabModel, val::Int = 100)
+    update!(model)  # 更新模型状态
+    return clip(val, 0, 100)  # 调整亮度值确保在0到100的范围内
+end
+
+"""
+Return a float denoting TCLab temperature T1 in degrees C.
+"""
+function T1(model::TCLabModel)
+    update!(model)  # 确保模型状态是最新的
+    return measurement(model, model._T1)  # 返回经过量化处理的 T1 温度
+end
+
+"""
+Return a float denoting TCLab temperature T2 in degrees C.
+"""
+function T2(model::TCLabModel)
+    update!(model)  # 更新模型状态，确保最新
+    return measurement(model, model._T2)  # 返回量化后的 T2 温度
+end
+
+# 获取 P1 属性的值
+"""
+Return the maximum power of heater 1 in PWM.
+"""
+function P1(model::TCLabModel)
+    update!(model)  # 更新模型状态，确保是最新的
+    return model._P1  # 返回加热器1的最大功率
+end
+
+# 设置 P1 属性的值
+"""
+Set the maximum power of heater 1 in PWM, range 0 to 255.
+"""
+function P1(model::TCLabModel, val::Int)
+    update!(model)  # 更新模型状态，确保是最新的
+    model._P1 = clip(val, 0, 255)  # 将值限制在范围 0 到 255 并设置为加热器1的最大功率
+    return model._P1  # 可以返回设置后的值作为确认
+end
+
+# 获取 P2 属性的值
+"""
+Return the maximum power of heater 2 in PWM.
+"""
+function P2(model::TCLabModel)
+    update!(model)  # 更新模型状态，确保是最新的
+    return model._P2  # 返回加热器2的最大功率
+end
+
+# 设置 P2 属性的值
+"""
+Set the maximum power of heater 2 in PWM, range 0 to 255.
+"""
+function P2(model::TCLabModel, val::Int)
+    update!(model)  # 更新模型状态，确保是最新的
+    model._P2 = clip(val, 0, 255)  # 将值限制在范围 0 到 255 并设置为加热器2的最大功率
+    return model._P2  # 可以返回设置后的值作为确认
+end
+
+# 获取或设置加热器1的功率
+"""
+Get or set TCLabModel heater power Q1.
+val: Value of heater power, range is limited to 0-100.
+"""
+function Q1(model::TCLabModel, val::Int=nothing)
+    update!(model)
+    if !isnothing(val)
+        model._Q1 = clip(val, 0, 100)  # 限制功率值在0到100之间
+    end
+    return model._Q1
+end
+
+# 获取或设置加热器2的功率
+"""
+Get or set TCLabModel heater power Q2.
+val: Value of heater power, range is limited to 0-100.
+"""
+function Q2(model::TCLabModel, val::Int=nothing)
+    update!(model)
+    if !isnothing(val)
+        model._Q2 = clip(val, 0, 100)  # 限制功率值在0到100之间
+    end
+    return model._Q2
+end
+
+# 扫描和返回各种测量数据
+"""
+Perform a scan and return temperatures and heater powers.
+"""
+function scan(model::TCLabModel)
+    update!(model)
+    return (
+        measurement(model, model._T1),
+        measurement(model, model._T2),
+        model._Q1,
+        model._Q2
+    )
+end
+
+"""
+Quantize model temperatures to mimic Arduino A/D conversion.
+"""
+function quantize(T::Float64)
+    quantized_temp = T - mod(T, 0.3223)  # 减去模0.3223的余数，实现量化效果
+    return max(-50.0, min(132.2, quantized_temp))  # 限制量化温度在-50到132.2之间
+end
+
+function measurement(model::TCLabModel, T::Float64)
+    """
+    Return a quantized temperature value after adding normal-distributed noise.
+    """
+    noisy_temp = T + randn() * 0.043  # 添加正态分布的随机噪声，均值为 0，标准偏差为 0.043
+    return quantize(noisy_temp)  # 对温度值进行量化
+end
+
+
+
+
+# # Basic setters and getters for properties
+# P1(model::TCLabModel) = model._P1
+# P1(model::TCLabModel, val::Real) = model._P1 = clip(val, 0, 255)
+
+# P2(model::TCLabModel) = model._P2
+# P2(model::TCLabModel, val::Real) = model._P2 = clip(val, 0, 255)
+
+# Q1(model::TCLabModel, val::Real=0) = (model._Q1 = clip(val, 0, 100); model._Q1)
+# Q2(model::TCLabModel, val::Real=0) = (model._Q2 = clip(val, 0, 100); model._Q2)
+
+# # Helper functions
+# function clip(val::Real, lower::Real, upper::Real)
+#     return max(lower, min(val, upper))
+# end
+
+# function quantize(T::Float64)
+#     return max(-50.0, min(132.2, T - mod(T, 0.3223)))
+# end
+
+# function measurement(model::TCLabModel, T::Float64)
+#     quantize(T + randn() * 0.043)
+# end
+
+# function update(model::TCLabModel, t::DateTime=now())
+#     dt = min(model.maxstep, (t - model.tlast) / Millisecond(1) / 1000)
+#     model.tlast = t
+
+#     # Euler integration for the model equations
+#     while (t - model.tlast) > Millisecond(dt * 1000)
+#         dH1 = model._P1 * model._Q1 / 5720 + (model.Ta - model._H1) / 20 - (model._H1 - model._H2) / 100
+#         model._H1 += dt * dH1
+#         # Similar for _H2, _T1, and _T2
+#     end
+# end
+
+# function scan(model::TCLabModel)
+#     update(model)
+#     (measurement(model, model._T1), measurement(model, model._T2), model._Q1, model._Q2)
+# end
+
+# export TCLabModel, init_lab, close, P1, P2, Q1, Q2, scan
 
 export TCLabDT
 
