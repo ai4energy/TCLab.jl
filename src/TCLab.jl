@@ -60,8 +60,6 @@ function get_port_metadata(port_name::String; show_config::Bool=true, baudrate::
     return port_info
 end
 
-#get_port_metadata("COM3")
-
 const sep = ' ' # command/value separator in TCLab firmware
 
 const arduinos = [
@@ -88,7 +86,7 @@ function find_arduino()
         sp=LibSerialPort.open(port,19200)
         realsp=sp.ref
         vid_pid = LibSerialPort.sp_get_port_usb_vid_pid(realsp)
-        if vid_pid != nothing
+        if !isnothing(vid_pid)
             vid, pid = vid_pid
             for (identifier, arduino) in arduinos
                 if (vid, pid) == identifier
@@ -96,27 +94,21 @@ function find_arduino()
                 end
             end
         end
-        LibSerialPort.close(realsp)
+        LibSerialPort.destroy!(sp)
     end
-    
-    # 如果没有找到匹配的设备，打印所有端口的信息
     println("--- Serial Ports ---")
     for port in ports
         println("Port name: ", LibSerialPort.sp_get_port_name(port))
-        println("Description: ", LibSerialPort.sp_get_port_description(port))
-        println("Hardware ID: ", LibSerialPort.sp_get_port_usb_vid_pid(port))
-    end
-    
+#        println("Description: ", LibSerialPort.sp_get_port_description(port))
+#        println("Hardware ID: ", LibSerialPort.sp_get_port_usb_vid_pid(port))
+    end    
     return nothing, nothing
 end
-
-find_arduino()
 
 struct AlreadyConnectedError <: Exception
     msg::String
     AlreadyConnectedError(msg="Already connected!") = new(msg)
 end
-
 
 """
 TCLab Digital Twin
@@ -130,25 +122,33 @@ mutable struct TCLabDT
     _P2::Float64
     sp::SerialPort
 end
-
-
-
+baud=19200
 port, arduino = find_arduino()
-LibSerialPort.get_port_list()
-# find_arduino()
-# list_ports()
-# sp = LibSerialPort.open("COM7", 9600)
-# write(sp, "VER\n")
-# sleep(3)
-# println(readline(sp))
-# LibSerialPort.close(sp)
+sp = LibSerialPort.open(port, baud)
 
-# Constructor
-
-function TCLabDT(; debug::Bool=false, port::String="COM5", arduino::String="Arduino Uno", baud::Int=9600, _P1::Float64=0.0, _P2::Float64=0.0)
+sp = LibSerialPort.open("COM3", baud)
+LibSerialPort.close(sp)
+LibSerialPort.isopen(sp)
+LibSerialPort.destroy!(sp)
+function TCLabDT(; debug::Bool=false)
+    baud=19200
+    port, arduino = find_arduino()
     sp = LibSerialPort.open(port, baud)
+    LibSerialPort.close(sp)
+    _P1=0.0
+    _P2=0.0
     return TCLabDT(debug, port, arduino, baud, _P1, _P2, sp)
 end
+
+"""
+用于模拟从Arduino接收数据和发送命令的方法
+"""
+function send_and_receive(tclab::TCLabDT, command::String)
+    write(tclab.sp, command * "\n")
+    return readline(tclab.sp)
+end
+
+
 
 #= 
 function TCLab(port::String = "", debug::Bool = false)
