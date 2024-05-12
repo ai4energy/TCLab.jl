@@ -80,30 +80,31 @@ function initialize!(tclab::TCLabDT; debug::Bool=false)
     tclab.sp = sp
 
     try
-        baud = 19200
-        LibSerialPort.open(sp, baud_rate=baud)
+        baud = 19200        
+        LibSerialPort.open(sp)
         _connected[] = true
+        tclab.baud = baud
     catch e
         if isa(e, AlreadyConnectedError)
             rethrow(e)
         else
             _connected[] = false                
             LibSerialPort.close(sp)
-            baud = 9600  # 以低速重新连接
+             # 以低速重新连接
             try
-                LibSerialPort.open(sp, baud_rate=baud)
+                baud = 9600 
+                LibSerialPort.open(sp)
                 println("Could not connect at high speed, but succeeded at low speed.")
                 println("This may be due to an old TCLab firmware.")
                 println("New Arduino TCLab firmware available at:")
                 println(_sketchurl)
                 _connected[] = true
+                tclab.baud = baud
             catch
-                throw(RuntimeError("Failed to Connect."))
+                throw(ErrorException("Failed to Connect."))
             end
         end
     end
-
-    tclab.baud = baud
     tclab._P1 = 10.0
     tclab._P2 = 10.0
     
