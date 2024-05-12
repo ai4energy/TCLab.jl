@@ -26,24 +26,15 @@ end
 function find_arduino()
     ports = LibSerialPort.get_port_list()
     for port in ports
-        println("Checking port: ", port)
-        sp = nothing
-        try
-            sp = LibSerialPort.open(port, 19200)
-            realsp = sp.ref
-            vid_pid = LibSerialPort.sp_get_port_usb_vid_pid(realsp)
-            if !isnothing(vid_pid)
-                vid, pid = vid_pid
-                for (identifier, arduino) in arduinos
-                    if (vid, pid) == identifier
-                        println("Found Arduino: ", arduino, " on port ", port)
-                        return port, arduino
-                    end
+        sp = LibSerialPort.SerialPort(port)
+        vid_pid = LibSerialPort.sp_get_port_usb_vid_pid(sp.ref)
+        if !isnothing(vid_pid)
+            vid, pid = vid_pid
+            for (identifier, arduino) in arduinos
+                if (vid, pid) == identifier
+                    println("Found Arduino: ", arduino, " on port ", port)
+                    return port, arduino
                 end
-            end
-        finally
-            if !isnothing(sp)
-                LibSerialPort.close(sp)  # 确保在退出前关闭端口
             end
         end
     end
@@ -181,7 +172,7 @@ end
 """
 用于从Arduino接收数据和发送命令的方法
 """
-function send_and_receive(tclab::TCLabDT, msg::AbstractString, target_type::Union{Type{T}, Nothing}=nothing) where T
+function send_and_receive(tclab::TCLabDT, msg::AbstractString, target_type::Union{Type{T},Nothing}=nothing) where {T}
     send(tclab, msg)
     #sleep(1.0)
     response = receive(tclab)
@@ -236,7 +227,7 @@ function P2(tclab::TCLabDT, val::Real)
 end
 
 
-function Q1(tclab::TCLabDT, value::Union{Nothing, Float64, Int}=nothing)
+function Q1(tclab::TCLabDT, value::Union{Nothing,Float64,Int}=nothing)
     if isnothing(value)
         # 如果未提供值，则发送获取当前 Q1 设置的命令
         msg = "R1"
@@ -252,7 +243,7 @@ function Q1(tclab::TCLabDT, value::Union{Nothing, Float64, Int}=nothing)
 end
 
 
-function Q2(tclab::TCLabDT, value::Union{Nothing, Float64, Int}=nothing)
+function Q2(tclab::TCLabDT, value::Union{Nothing,Float64,Int}=nothing)
     if isnothing(value)
         # 没有提供值时，获取当前 Q2 设置的命令
         msg = "R2"
@@ -300,8 +291,8 @@ mutable struct TCLabModel
     debug::Bool
     synced::Bool
     Ta::Float64  # ambient temperature
-#    tstart::DateTime  # start time
-#    tlast::DateTime  # last update time
+    #    tstart::DateTime  # start time
+    #    tlast::DateTime  # last update time
     _P1::Float64  # max power heater 1
     _P2::Float64  # max power heater 2
     _Q1::Float64  # initial heater 1 power
@@ -310,9 +301,9 @@ mutable struct TCLabModel
     _T2::Float64  # temperature thermistor 2
     _H1::Float64  # temperature heater 1
     _H2::Float64  # temperature heater 2
- #   maxstep::Float64  # maximum time step for integration
+    #   maxstep::Float64  # maximum time step for integration
 
-   # TCLabModel(; debug::Bool=false, synced::Bool=true) = new(debug, synced, 21.0, now(), now(), 200.0, 100.0, 0.0, 0.0, 21.0, 21.0, 21.0, 21.0, 0.2)
+    # TCLabModel(; debug::Bool=false, synced::Bool=true) = new(debug, synced, 21.0, now(), now(), 200.0, 100.0, 0.0, 0.0, 21.0, 21.0, 21.0, 21.0, 0.2)
 end
 
 # Initialization and debug prints
@@ -368,7 +359,7 @@ end
 Simulate flashing TCLab LED
 val : specified brightness (default 100).
 """
-function LED(model::TCLabModel, val::Int = 100)
+function LED(model::TCLabModel, val::Int=100)
     update!(model)  # 更新模型状态
     return clip(val, 0, 100)  # 调整亮度值确保在0到100的范围内
 end
