@@ -62,11 +62,12 @@ mutable struct TCLabDT
     baud::Int
     _P1::Float64
     _P2::Float64
-    sp::LibSerialPort.SerialPort
+    sp::Union{LibSerialPort.SerialPort, Nothing}
+    firmwareversion::String
 end
 
 # 默认构造函数
-TCLabDT() = TCLabDT(false, "", "", 19200, 10.0, 10.0, nothing)
+TCLabDT() = TCLabDT(false, "", "", 19200, 10.0, 10.0, nothing, "")
 
 function initialize!(tclab::TCLabDT; debug::Bool=false)
     println("TCLab (Julia) version", __version__)
@@ -110,6 +111,7 @@ function initialize!(tclab::TCLabDT; debug::Bool=false)
         println("$(tclab.arduino) connected on port $(tclab.port) at $(tclab.baud) baud.")
     end
 end
+#tclab=TCLabDT()
 
 function connect!(tclab::TCLabDT, baudrate::Int)
     if _connected[]
@@ -130,7 +132,6 @@ function connect!(tclab::TCLabDT, baudrate::Int)
         rethrow(e)  # 重新抛出异常以便调用者处理
     end
 end
-
 
 function close(tclab::TCLabDT)
     Q1(tclab, 0)
