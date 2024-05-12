@@ -3,6 +3,7 @@ using .TCLab
 using LibSerialPort
 
 tclab=TCLabDT()
+initialize!(tclab)
 LibSerialPort.open(tclab.sp)
 LibSerialPort.set_speed(tclab.sp, tclab.baud)
 
