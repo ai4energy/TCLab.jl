@@ -11,7 +11,6 @@ const arduinos = [
 const sketchurl = "https://github.com/jckantor/TCLab-sketch"
 global _connected = false
 
-
 include("utils.jl")
 
 """
@@ -27,8 +26,8 @@ mutable struct TCLabDT
     sp::SerialPort
 end
 
-function TCLabDT(; debug::Bool=false)
-    debug = false
+function TCLabDT(; debug::Bool=true)
+    debug = debug
     port, arduino = find_arduino()
     baud = 19200
     _P1 = 10.0
@@ -39,9 +38,6 @@ function TCLabDT(; debug::Bool=false)
     LibSerialPort.close(sp)
     TCLabDT(debug, port, arduino, baud, _P1, _P2, sp)
 end
-
-
-
 
 #= 
 function TCLab(port::String = "", debug::Bool = false)
@@ -109,10 +105,6 @@ function connect!(tclab::TCLabDT, baud::Int)
     end
 end
 
-function Q1(tclab::TCLabDT, value::Int)
-    send_and_receive(tclab, "Q1 $(value)")
-end
-
 function close(tclab::TCLabDT)
     Q1(tclab, 0)
     Q2(tclab, 0)
@@ -143,7 +135,7 @@ end
 """
 function send_and_receive(tclab::TCLabDT, msg::AbstractString, target_type::Union{Type{T}, Nothing}=nothing) where T
     send(tclab, msg)
-    sleep(1.0)
+    #sleep(1.0)
     response = receive(tclab)
     if isnothing(target_type)
         return response  # 如果没有提供 target_type，返回原始响应
@@ -177,52 +169,84 @@ function P1(tclab::TCLabDT)
     return tclab._P1
 end
 
-function P1(tclab::TCLabDT, val::Float64)
-    tclab._P1 = send_and_receive(tclab, command("P1", val, 0, 255), Float64)
+function P1(tclab::TCLabDT, val::Real)
+    # 确保传入值在合法范围内
+    clipped_val = clip(val; lower=0, upper=255)
+    # 发送命令并更新 _P1 值
+    tclab._P1 = send_and_receive(tclab, command("P1", clipped_val; lower=0, upper=255), Float64)
 end
-
 
 function P2(tclab::TCLabDT)
     return tclab._P2
 end
 
-function P2(tclab::TCLabDT, val::Float64)
-    tclab._P2 = send_and_receive(tclab, command("P2", val, 0, 255), Float64)
+function P2(tclab::TCLabDT, val::Real)
+    # 确保传入值在合法范围内
+    clipped_val = clip(val; lower=0, upper=255)
+    # 发送命令并更新 _P2 值，确保使用关键字参数
+    tclab._P2 = send_and_receive(tclab, command("P2", clipped_val; lower=0, upper=255), Float64)
 end
 
-function Q1(tclab::TCLabDT, val::Union{Float64,Nothing,Int64}=nothing)
-    if isnothing(val)
+
+function Q1(tclab::TCLabDT, value::Union{Nothing, Float64, Int}=nothing)
+    if isnothing(value)
+        # 如果未提供值，则发送获取当前 Q1 设置的命令
         msg = "R1"
     else
-        msg = "Q1$sep$(clip(val))"
+        # 确保传入的值是整数，如果是浮点数则向下取整
+        # 因为加热器设置应该是整数
+        int_value = isa(value, Float64) ? floor(Int, value) : value
+        # 使用 command 函数生成设置新 Q1 值的命令，确保值的合法范围
+        msg = command("Q1", int_value; lower=0, upper=100)
     end
+    # 发送命令并返回解析后的响应，假设响应需要解析为 Float64
     return send_and_receive(tclab, msg, Float64)
 end
 
-function Q2(tclab::TCLabDT, val::Union{Float64,Nothing,Int64}=nothing)
-    if isnothing(val)
+
+function Q2(tclab::TCLabDT, value::Union{Nothing, Float64, Int}=nothing)
+    if isnothing(value)
+        # 没有提供值时，获取当前 Q2 设置的命令
         msg = "R2"
     else
-        msg = "Q2$sep$(clip(val))"
+        # 将浮点值向下取整为整数，因为加热器设置应为整数
+        int_value = isa(value, Float64) ? floor(Int, value) : value
+        # 使用 command 函数生成设置新 Q2 值的命令，确保值的合法范围
+        msg = command("Q2", int_value; lower=0, upper=100)
     end
+    # 发送命令并返回解析后的响应，将其解析为 Float64
     return send_and_receive(tclab, msg, Float64)
 end
 
 # Define scan function
 function scan(tclab::TCLabDT)
-    T1_val = T1(tclab)
-    T2_val = T2(tclab)
-    Q1_val = Q1(tclab)
-    Q2_val = Q2(tclab)
-    return (T1_val, T2_val, Q1_val, Q2_val)
+    try
+        T1_val = T1(tclab)
+        T2_val = T2(tclab)
+        Q1_val = Q1(tclab)
+        Q2_val = Q2(tclab)
+        return (T1_val, T2_val, Q1_val, Q2_val)
+    catch e
+        println("Error occurred during scanning: ", e)
+        return (nothing, nothing, nothing, nothing)  # 或者根据需要返回默认值
+    end
 end
 
-# Define properties for U1 and U2
-U1(tclab::TCLabDT) = Q1(tclab)
-U1(tclab::TCLabDT, val::Float64) = Q1(tclab, val)
 
+"""
+`U1(tclab)` - Get the current setting for heater 1.
+`U1(tclab, val)` - Set a new value for heater 1.
+"""
+U1(tclab::TCLabDT) = Q1(tclab)
+U1(tclab::TCLabDT, val::Real) = Q1(tclab, val)
+
+"""
+`U2(tclab)` - Get the current setting for heater 2.
+`U2(tclab, val)` - Set a new value for heater 2.
+"""
 U2(tclab::TCLabDT) = Q2(tclab)
-U2(tclab::TCLabDT, val::Float64) = Q2(tclab, val)
+U2(tclab::TCLabDT, val::Real) = Q2(tclab, val)
+
 
 export TCLabDT
 
