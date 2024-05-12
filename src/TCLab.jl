@@ -1,20 +1,20 @@
 module TCLab
 using LibSerialPort
 
-const __version__="0.1.0"
+const __version__ = "0.1.0"
 
 function get_port_metadata(port::LibSerialPort.Port; show_config::Bool=true)
-    port_info = Dict{String, Any}()
+    port_info = Dict{String,Any}()
     port_info["Port name"] = LibSerialPort.sp_get_port_name(port)
     println("\nPort name:\t", port_info["Port name"])
-    transport = LibSerialPort.Lib.sp_get_port_transport(port)    
+    transport = LibSerialPort.Lib.sp_get_port_transport(port)
     if transport == LibSerialPort.SP_TRANSPORT_NATIVE
         port_info["Port transport"] = "native serial port"
-        print("\nPort transport:\t");
+        print("\nPort transport:\t")
         println("native serial port")
     elseif transport == LibSerialPort.SP_TRANSPORT_USB
         port_info["Port transport"] = "USB"
-        print("\nPort transport:\t");
+        print("\nPort transport:\t")
         println("USB")
         port_info["Manufacturer"] = LibSerialPort.sp_get_port_usb_manufacturer(port)
         port_info["Product"] = LibSerialPort.sp_get_port_usb_product(port)
@@ -36,9 +36,9 @@ function get_port_metadata(port::LibSerialPort.Port; show_config::Bool=true)
         println("Description:\t", port_info["Description"])
     elseif transport == LibSerialPort.SP_TRANSPORT_BLUETOOTH
         port_info["Port transport"] = "Bluetooth"
-        print("\nPort transport:\t");
+        print("\nPort transport:\t")
         println("Bluetooth")
-        port_info["Bluetooth address"]=LibSerialPort.Lib.sp_get_port_bluetooth_address(port)
+        port_info["Bluetooth address"] = LibSerialPort.Lib.sp_get_port_bluetooth_address(port)
         println("Bluetooth address:\t", port_info["Bluetooth address"])
     end
     if show_config
@@ -55,12 +55,12 @@ end
 
 function get_port_metadata(port_name::String; show_config::Bool=true, baudrate::Int=19200)
     port = LibSerialPort.open(port_name, baudrate)
-    port_info=get_port_metadata(port, show_config=show_config)
+    port_info = get_port_metadata(port, show_config=show_config)
     LibSerialPort.close(port)
     return port_info
 end
 
-get_port_metadata("COM3")
+#get_port_metadata("COM3")
 
 const sep = ' ' # command/value separator in TCLab firmware
 
@@ -83,21 +83,33 @@ end
 
 """Locates Arduino and returns port and device."""
 function find_arduino()
-    # 使用下面的函数组合，判断哪个是目标端口，返回port和arduino信息
-    # LibSerialPort.close(sp)
-    # spp = LibSerialPort.sp_get_port_by_name("COM7")
-    # LibSerialPort.sp_get_port_name(spp)
-    # LibSerialPort.sp_get_port_description(sp.ref)
-    # LibSerialPort.sp_get_port_usb_vid_pid(spp)
-    # LibSerialPort.sp_get_port_transport(sp.ref)
-    # LibSerialPort.sp_get_port_usb_manufacturer(sp.ref)
-    # LibSerialPort.sp_get_port_usb_serial(sp.ref)
-    # LibSerialPort.sp_get_port_usb_bus_address(sp.ref)
-    # LibSerialPort.get_port_settings(sp.ref)
-    # LibSerialPort.print_port_settings(sp.ref)
-    # LibSerialPort.get_port_list()
-    return "COM3", "Arduino Uno (COM3)"
+    ports = LibSerialPort.get_port_list()
+    for port in ports
+        sp=LibSerialPort.open(port,19200)
+        realsp=sp.ref
+        vid_pid = LibSerialPort.sp_get_port_usb_vid_pid(realsp)
+        if vid_pid != nothing
+            vid, pid = vid_pid
+            for (identifier, arduino) in arduinos
+                if (vid, pid) == identifier
+                    return port, arduino
+                end
+            end
+        end
+        LibSerialPort.close(realsp)
+    end
+    
+    # 如果没有找到匹配的设备，打印所有端口的信息
+    println("--- Serial Ports ---")
+    for port in ports
+        println("Port name: ", LibSerialPort.sp_get_port_name(port))
+        println("Description: ", LibSerialPort.sp_get_port_description(port))
+        println("Hardware ID: ", LibSerialPort.sp_get_port_usb_vid_pid(port))
+    end
+    
+    return nothing, nothing
 end
+
 find_arduino()
 
 struct AlreadyConnectedError <: Exception
@@ -125,7 +137,7 @@ port, arduino = find_arduino()
 LibSerialPort.get_port_list()
 # find_arduino()
 # list_ports()
- # sp = LibSerialPort.open("COM7", 9600)
+# sp = LibSerialPort.open("COM7", 9600)
 # write(sp, "VER\n")
 # sleep(3)
 # println(readline(sp))
@@ -184,7 +196,7 @@ function TCLab(port::String = "", debug::Bool = false)
                ("Q1", nothing),
                ("Q2", nothing),
               ]
-    
+
     return new(debug, port, arduino, baud, _P1, _P2, sp)
 end =#
 
@@ -216,7 +228,7 @@ end
 function send_and_receive(tclab::TCLabDT, msg::AbstractString, convert::Type{T}=Float64) where {T}
     send(tclab, msg)
     response = receive(tclab)
-    return parse(T, response)    
+    return parse(T, response)
 end
 
 function send_and_receive(tclab::TCLabDT, msg::AbstractString)
@@ -259,7 +271,7 @@ end
 
 
 # Functions for Q1 and Q2
-function Q1(tclab::TCLabDT, val::Union{Float64, Nothing,Int64}=nothing)
+function Q1(tclab::TCLabDT, val::Union{Float64,Nothing,Int64}=nothing)
     if isnothing(val)
         msg = "R1"
     else
@@ -268,7 +280,7 @@ function Q1(tclab::TCLabDT, val::Union{Float64, Nothing,Int64}=nothing)
     return send_and_receive(tclab, msg, Float64)
 end
 
-function Q2(tclab::TCLabDT ,val::Union{Float64, Nothing,Int64}=nothing)
+function Q2(tclab::TCLabDT, val::Union{Float64,Nothing,Int64}=nothing)
     if isnothing(val)
         msg = "R2"
     else
@@ -309,7 +321,7 @@ baud: baud rate
 #     _connected = true
 #     tclab.sp = LibSerialPort.open(port,baud)
 #     sleep(2)
-    
+
 # # find_arduino()
 # # list_ports()
 # # sp = LibSerialPort.open("COM7", 9600)
@@ -319,7 +331,7 @@ baud: baud rate
 # # LibSerialPort.close(sp)
 # end
 
-function connect(obj::TCLabDT,arduino::String,baud::Int)
+function connect(obj::TCLabDT, arduino::String, baud::Int)
     """
     Establish a connection to the Arduino
 
@@ -332,7 +344,7 @@ function connect(obj::TCLabDT,arduino::String,baud::Int)
     end
 
     _connected = true
-    
+
     LibSerialPort.open(obj.sp)
     sleep(2)
     Q1(obj, 0.0)  # fails if not connected
