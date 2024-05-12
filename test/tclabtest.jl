@@ -4,7 +4,8 @@ using LibSerialPort
 
 tclab=TCLabDT()
 TCLab.initialize!(tclab)
-
+TCLab.close(tclab)
+TCLab.connect!(tclab,19200)
 LibSerialPort.set_speed(tclab.sp, tclab.baud)
 LibSerialPort.isopen(tclab.sp)
 

@@ -106,19 +106,17 @@ function initialize!(tclab::TCLabDT; debug::Bool=false)
         end
     end
     tclab._P1 = 10.0
-    tclab._P2 = 10.0
+    tclab._P2 = 20.0
     
     if LibSerialPort.isopen(sp)
         println("$(tclab.arduino) connected on port $(tclab.port) at $(tclab.baud) baud.")
     end
 end
-#tclab=TCLabDT()
 
 function connect!(tclab::TCLabDT, baudrate::Int)
     if _connected[]
         throw(AlreadyConnectedError("You already have an open connection"))
     end
-
     try
         tclab.sp = LibSerialPort.open(tclab.port, baudrate)  # 打开指定端口
         sleep(2)  # 等待硬件响应
@@ -138,7 +136,7 @@ function close(tclab::TCLabDT)
     Q1(tclab, 0)
     Q2(tclab, 0)
     send_and_receive(tclab, "X")
-    close(tclab.sp)
+    LibSerialPort.close(tclab.sp)
     _connected[] = false
     println("TCLab disconnected successfully.")
 end
