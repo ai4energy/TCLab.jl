@@ -1,15 +1,63 @@
 module TCLab
-using LibSerialPort, Random, Dates, UTCDateTimes
+using LibSerialPort, Random, Dates
 const __version__ = "0.1.0"
 
 const sep = ' ' # command/value separator in TCLab firmware
 
+# We should add more devices to this list.
 const arduinos = [
     ((9025, 67), "Arduino Uno"),
 ]
 
 const sketchurl = "https://github.com/jckantor/TCLab-sketch"
 global _connected = false
+
+"""Limit value to be between lower and upper limits"""
+function clip(val::Real; lower=0, upper=100)
+    return max(lower, min(val, upper))
+end
+
+"""Construct command to TCLab-sketch."""
+function command(name::String, argument::Real; lower=0, upper=100)
+    return name * sep * string(clip(argument; lower=lower, upper=upper))
+end
+
+"""Locates Arduino and returns port and device."""
+function find_arduino()
+    ports = LibSerialPort.get_port_list()
+    for port in ports
+        println("Checking port: ", port)
+        sp = nothing
+        try
+            sp = LibSerialPort.open(port, 19200)
+            realsp = sp.ref
+            vid_pid = LibSerialPort.sp_get_port_usb_vid_pid(realsp)
+            if !isnothing(vid_pid)
+                vid, pid = vid_pid
+                for (identifier, arduino) in arduinos
+                    if (vid, pid) == identifier
+                        println("Found Arduino: ", arduino, " on port ", port)
+                        return port, arduino
+                    end
+                end
+            end
+        finally
+            if !isnothing(sp)
+                LibSerialPort.close(sp)  # 确保在退出前关闭端口
+            end
+        end
+    end
+    println("--- No Arduino Found in These Serial Port(s): ---")
+    for port in ports
+        println("Port name: ", port)
+    end
+    return nothing, nothing
+end
+
+struct AlreadyConnectedError <: Exception
+    msg::String
+    AlreadyConnectedError(msg="Already connected!") = new(msg)
+end
 
 include("utils.jl")
 
