@@ -5,7 +5,7 @@ LibSerialPort.list_ports()
 #---------------------------------------
 # 下面这一行手动修改，打开串口
 #---------------------------------------
-sp = LibSerialPort.open("COM5", 9600)
+sp = LibSerialPort.open("COM3", 19200)
 
 #---------------------------------------
 # 以下调用LibSerialPort库来看各种信息
@@ -25,7 +25,7 @@ LibSerialPort.Lib.sp_get_major_package_version()
 LibSerialPort.Lib.sp_get_micro_package_version()
 LibSerialPort.Lib.sp_get_minor_package_version()
 LibSerialPort.Lib.sp_get_port_name(sp.ref)
-LibSerialPort.Lib.sp_get_port_by_name("COM5")
+LibSerialPort.Lib.sp_get_port_by_name("COM3")
 LibSerialPort.Lib.sp_get_port_transport(sp.ref)
 LibSerialPort.Lib.sp_get_port_bluetooth_address(sp.ref)
 LibSerialPort.get_port_list()
