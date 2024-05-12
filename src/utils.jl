@@ -75,3 +75,40 @@ function command(name::String, argument::Number; lower=0, upper=100)
     # 生成字符串指令
     return name * sep * string(clip(argument; lower=lower, upper=upper))
 end
+
+struct AlreadyConnectedError <: Exception
+    msg::String
+    AlreadyConnectedError(msg="Already connected!") = new(msg)
+end
+
+function find_arduino()
+    ports = LibSerialPort.get_port_list()
+    for port in ports
+        println("Checking port: ", port)
+        sp = nothing
+        try
+            sp = LibSerialPort.open(port, 19200)
+            realsp = sp.ref
+            vid_pid = LibSerialPort.sp_get_port_usb_vid_pid(realsp)
+            if !isnothing(vid_pid)
+                vid, pid = vid_pid
+                for (identifier, arduino) in arduinos
+                    if (vid, pid) == identifier
+                        println("Found Arduino: ", arduino, " on port ", port)
+                        return port, arduino
+                    end
+                end
+            end
+        finally
+            if !isnothing(sp)
+                LibSerialPort.close(sp)  # 确保在退出前关闭端口
+            end
+        end
+    end
+    println("--- Serial Ports ---")
+    for port in ports
+        println("Port name: ", LibSerialPort.sp_get_port_name(port))
+        # 额外的端口信息打印，如果需要的话
+    end
+    return nothing, nothing
+end
