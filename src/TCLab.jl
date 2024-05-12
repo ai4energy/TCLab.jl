@@ -10,7 +10,7 @@ const arduinos = [
 ]
 
 const sketchurl = "https://github.com/jckantor/TCLab-sketch"
-global _connected = false
+const _connected = Ref(false)
 
 """Limit value to be between lower and upper limits"""
 function clip(val::Real; lower=0, upper=100)
@@ -62,84 +62,72 @@ mutable struct TCLabDT
     baud::Int
     _P1::Float64
     _P2::Float64
-    sp::SerialPort
+    sp::Union{LibSerialPort.SerialPort, Nothing}
+    firmwareversion::String
 end
 
-function TCLabDT(; debug::Bool=true)
-    debug = debug
+# 默认构造函数
+TCLabDT() = TCLabDT(false, "", "", 19200, 10.0, 10.0, nothing, "")
+
+function initialize!(tclab::TCLabDT; debug::Bool=false)
+    println("TCLab (Julia) version", __version__)
     port, arduino = find_arduino()
-    baud = 19200
-    _P1 = 10.0
-    _P2 = 10.0
     sp = LibSerialPort.SerialPort(port)
-    LibSerialPort.open(sp)
-    LibSerialPort.isopen(sp)
-    LibSerialPort.close(sp)
-    TCLabDT(debug, port, arduino, baud, _P1, _P2, sp)
-end
-
-#= 
-function TCLab(port::String = "", debug::Bool = false)
-    _connected = false
-    print("TCLab version ", __version__)
-    port, arduino = find_arduino(port)
-    if port == nothing
-        throw(RuntimeError("No Arduino device found."))
-    end  
+    
+    tclab.debug = debug
+    tclab.port = port
+    tclab.arduino = arduino
+    tclab.sp = sp
 
     try
-        connect(TCLab, arduino, 115200)
+        baud = 19200        
+        LibSerialPort.open(sp)
+        _connected[] = true
+        tclab.baud = baud
     catch e
         if isa(e, AlreadyConnectedError)
-            throw(e)
+            rethrow(e)
         else
+            _connected[] = false                
+            LibSerialPort.close(sp)
+             # 以低速重新连接
             try
-                global _connected = false
-                sp.close()
-                connect(TCLab, arduino, 9600)
+                baud = 9600 
+                LibSerialPort.open(sp)
                 println("Could not connect at high speed, but succeeded at low speed.")
                 println("This may be due to an old TCLab firmware.")
                 println("New Arduino TCLab firmware available at:")
                 println(_sketchurl)
+                _connected[] = true
+                tclab.baud = baud
             catch
-                throw(RuntimeError("Failed to Connect."))
+                throw(ErrorException("Failed to Connect."))
             end
         end
     end
-
-    readline(sp)
-    version = send_and_receive(TCLab, "VER")
-    if isopen(sp)
-        println(arduino, " connected on port ", port, " at ", baud, " baud.")
-        println(version, ".")
+    tclab._P1 = 10.0
+    tclab._P2 = 20.0
+    
+    if LibSerialPort.isopen(sp)
+        println("$(tclab.arduino) connected on port $(tclab.port) at $(tclab.baud) baud.")
     end
+end
 
-    labtime.set_rate(1)
-    labtime.start()
-    _P1 = 200.0
-    _P2 = 100.0
-    Q2(TCLab, 0)
-    sources = [("T1", scan),
-               ("T2", nothing),
-               ("Q1", nothing),
-               ("Q2", nothing),
-              ]
-
-    return new(debug, port, arduino, baud, _P1, _P2, sp)
-end =#
-
-function connect!(tclab::TCLabDT, baud::Int)
-    if _connected
+function connect!(tclab::TCLabDT, baudrate::Int)
+    if _connected[]
         throw(AlreadyConnectedError("You already have an open connection"))
     end
-
     try
-        tclab.sp = LibSerialPort.open(tclab.port, baud)  # 打开指定端口
+        tclab.sp = LibSerialPort.open(tclab.port, baudrate)  # 打开指定端口
         sleep(2)  # 等待硬件响应
-        #Q1(tclab, 0)  # 发送初始化命令，失败时应处理错误
-        global _connected = true
+        Q1(tclab, 0)  # 发送初始化命令，失败时应处理错误
+        _connected[] = true
+        tclab.baud=baudrate
     catch e
-        global _connected = false  # 确保连接状态被重置
+        _connected[] = false  # 确保连接状态被重置
+        if tclab.sp !== nothing
+            LibSerialPort.close(tclab.sp)
+        end
         rethrow(e)  # 重新抛出异常以便调用者处理
     end
 end
@@ -148,8 +136,8 @@ function close(tclab::TCLabDT)
     Q1(tclab, 0)
     Q2(tclab, 0)
     send_and_receive(tclab, "X")
-    close(tclab.sp)
-    global _connected = false
+    LibSerialPort.close(tclab.sp)
+    _connected[] = false
     println("TCLab disconnected successfully.")
 end
 

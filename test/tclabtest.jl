@@ -3,8 +3,11 @@ using .TCLab
 using LibSerialPort
 
 tclab=TCLabDT()
-LibSerialPort.open(tclab.sp)
+TCLab.initialize!(tclab)
+TCLab.close(tclab)
+TCLab.connect!(tclab,19200)
 LibSerialPort.set_speed(tclab.sp, tclab.baud)
+LibSerialPort.isopen(tclab.sp)
 
 TCLab.send_and_receive(tclab, "VER")
 TCLab.send_and_receive(tclab, "LED 100", Float64)
