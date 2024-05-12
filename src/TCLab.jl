@@ -40,13 +40,8 @@ function TCLabDT(; debug::Bool=false)
     TCLabDT(debug, port, arduino, baud, _P1, _P2, sp)
 end
 
-"""
-用于模拟从Arduino接收数据和发送命令的方法
-"""
-function send_and_receive(tclab::TCLabDT, command::String)
-    write(tclab.sp, command * "\n")
-    return readline(tclab.sp)
-end
+
+
 
 #= 
 function TCLab(port::String = "", debug::Bool = false)
@@ -118,14 +113,6 @@ function Q1(tclab::TCLabDT, value::Int)
     send_and_receive(tclab, "Q1 $(value)")
 end
 
-# 需要一个发送和接收函数
-function send_and_receive(tclab::TCLabDT, command::String)
-    write(tclab.sp, command * "\r\n")
-    sleep(1)  # 等待设备处理命令
-    return readline(tclab.sp)  # 读取响应
-end
-
-
 function close(tclab::TCLabDT)
     Q1(tclab, 0)
     Q2(tclab, 0)
@@ -156,9 +143,12 @@ function send_and_receive(tclab::TCLabDT, msg::AbstractString, convert::Type{T}=
     response = receive(tclab)
     return parse(T, response)
 end
-
+"""
+用于模拟从Arduino接收数据和发送命令的方法
+"""
 function send_and_receive(tclab::TCLabDT, msg::AbstractString)
     send(tclab, msg)
+    sleep(1)
     response = receive(tclab)
     return response
 end
