@@ -506,8 +506,13 @@ end
 #     (measurement(model, model._T1), measurement(model, model._T2), model._Q1, model._Q2)
 # end
 
-# export TCLabModel, init_lab, close, P1, P2, Q1, Q2, scan
-
-export TCLabDevice
-
+export TCLabDevice, TCLabModel,
+       initialize!, connect!, close,
+       send, receive, send_and_receive,
+       LED,
+       T1, T2,
+       P1, P2,
+       Q1, Q2,
+       U1, U2,
+       scan
 end # module TCLab
