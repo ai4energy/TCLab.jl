@@ -56,7 +56,7 @@ include("labtime.jl")
 """
 TCLab Digital Twin
 """
-mutable struct TCLabDevice 
+mutable struct TCLabDevice
     debug::Bool
     port::String
     arduino::String
@@ -68,9 +68,9 @@ mutable struct TCLabDevice
 end
 
 # 默认构造函数
-TCLabDevice () = TCLabDevice (false, "", "", 19200, 10.0, 10.0, nothing, "")
+TCLabDevice() = TCLabDevice(false, "", "", 19200, 10.0, 10.0, nothing, "")
 
-function initialize!(tclab::TCLabDevice ; debug::Bool=false)
+function initialize!(tclab::TCLabDevice; debug::Bool=false)
     println("TCLab (Julia) version", __version__)
     port, arduino = find_arduino()
     sp = LibSerialPort.SerialPort(port)
@@ -114,7 +114,7 @@ function initialize!(tclab::TCLabDevice ; debug::Bool=false)
     end
 end
 
-function connect!(tclab::TCLabDevice , baudrate::Int)
+function connect!(tclab::TCLabDevice, baudrate::Int)
     if _connected[]
         throw(AlreadyConnectedError("You already have an open connection"))
     end
@@ -133,7 +133,7 @@ function connect!(tclab::TCLabDevice , baudrate::Int)
     end
 end
 
-function close(tclab::TCLabDevice )
+function close(tclab::TCLabDevice)
     Q1(tclab, 0)
     Q2(tclab, 0)
     send_and_receive(tclab, "X")
@@ -142,7 +142,7 @@ function close(tclab::TCLabDevice )
     println("TCLab disconnected successfully.")
 end
 
-function send(tclab::TCLabDevice , msg::String)
+function send(tclab::TCLabDevice, msg::String)
     write(tclab.sp, msg * "\r\n")
     if tclab.debug
         println("Sent: \"$msg\"")
@@ -150,7 +150,7 @@ function send(tclab::TCLabDevice , msg::String)
     flush(tclab.sp)
 end
 
-function receive(tclab::TCLabDevice )
+function receive(tclab::TCLabDevice)
     msg = readline(tclab.sp)
     if tclab.debug
         println("Return: \"$msg\"")
@@ -161,7 +161,7 @@ end
 """
 用于从Arduino接收数据和发送命令的方法
 """
-function send_and_receive(tclab::TCLabDevice , msg::AbstractString, target_type::Union{Type{T},Nothing}=nothing) where {T}
+function send_and_receive(tclab::TCLabDevice, msg::AbstractString, target_type::Union{Type{T},Nothing}=nothing) where {T}
     send(tclab, msg)
     #sleep(1.0)
     response = receive(tclab)
@@ -178,37 +178,37 @@ function send_and_receive(tclab::TCLabDevice , msg::AbstractString, target_type:
     end
 end
 
-function LED(tclab::TCLabDevice , val=100)
+function LED(tclab::TCLabDevice, val=100)
     return send_and_receive(tclab, command("LED", val), Float64)
 end
 
 # Properties
-function T1(tclab::TCLabDevice )
+function T1(tclab::TCLabDevice)
     return send_and_receive(tclab, "T1", Float64)
 end
 
-function T2(tclab::TCLabDevice )
+function T2(tclab::TCLabDevice)
     return send_and_receive(tclab, "T2", Float64)
 end
 
 
 # Define P1 and P2 as properties
-function P1(tclab::TCLabDevice )
+function P1(tclab::TCLabDevice)
     return tclab._P1
 end
 
-function P1(tclab::TCLabDevice , val::Real)
+function P1(tclab::TCLabDevice, val::Real)
     # 确保传入值在合法范围内
     clipped_val = clip(val; lower=0, upper=255)
     # 发送命令并更新 _P1 值
     tclab._P1 = send_and_receive(tclab, command("P1", clipped_val; lower=0, upper=255), Float64)
 end
 
-function P2(tclab::TCLabDevice )
+function P2(tclab::TCLabDevice)
     return tclab._P2
 end
 
-function P2(tclab::TCLabDevice , val::Real)
+function P2(tclab::TCLabDevice, val::Real)
     # 确保传入值在合法范围内
     clipped_val = clip(val; lower=0, upper=255)
     # 发送命令并更新 _P2 值，确保使用关键字参数
@@ -216,7 +216,7 @@ function P2(tclab::TCLabDevice , val::Real)
 end
 
 
-function Q1(tclab::TCLabDevice , value::Union{Nothing,Float64,Int}=nothing)
+function Q1(tclab::TCLabDevice, value::Union{Nothing,Float64,Int}=nothing)
     if isnothing(value)
         # 如果未提供值，则发送获取当前 Q1 设置的命令
         msg = "R1"
@@ -232,7 +232,7 @@ function Q1(tclab::TCLabDevice , value::Union{Nothing,Float64,Int}=nothing)
 end
 
 
-function Q2(tclab::TCLabDevice , value::Union{Nothing,Float64,Int}=nothing)
+function Q2(tclab::TCLabDevice, value::Union{Nothing,Float64,Int}=nothing)
     if isnothing(value)
         # 没有提供值时，获取当前 Q2 设置的命令
         msg = "R2"
@@ -247,7 +247,7 @@ function Q2(tclab::TCLabDevice , value::Union{Nothing,Float64,Int}=nothing)
 end
 
 # Define scan function
-function scan(tclab::TCLabDevice )
+function scan(tclab::TCLabDevice)
     try
         T1_val = T1(tclab)
         T2_val = T2(tclab)
@@ -265,15 +265,15 @@ end
 `U1(tclab)` - Get the current setting for heater 1.
 `U1(tclab, val)` - Set a new value for heater 1.
 """
-U1(tclab::TCLabDevice ) = Q1(tclab)
-U1(tclab::TCLabDevice , val::Real) = Q1(tclab, val)
+U1(tclab::TCLabDevice) = Q1(tclab)
+U1(tclab::TCLabDevice, val::Real) = Q1(tclab, val)
 
 """
 `U2(tclab)` - Get the current setting for heater 2.
 `U2(tclab, val)` - Set a new value for heater 2.
 """
-U2(tclab::TCLabDevice ) = Q2(tclab)
-U2(tclab::TCLabDevice , val::Real) = Q2(tclab, val)
+U2(tclab::TCLabDevice) = Q2(tclab)
+U2(tclab::TCLabDevice, val::Real) = Q2(tclab, val)
 
 
 mutable struct TCLabModel
@@ -508,6 +508,6 @@ end
 
 # export TCLabModel, init_lab, close, P1, P2, Q1, Q2, scan
 
-export TCLabDevice 
+export TCLabDevice
 
 end # module TCLab
