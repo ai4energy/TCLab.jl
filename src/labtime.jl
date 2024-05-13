@@ -1,40 +1,53 @@
+
+using Dates
 mutable struct Labtime
-    realtime::Float64
-    labtime::Float64
-    rate::Float64
-    running::Bool
+    _realtime::DateTime
+    _labtime::Float64
+    _rate::Float64
+    _running::Bool
     lastsleep::Float64
 end
 
 function Labtime()
-    realtime = time()
-    labtime = 0.0
+    _realtime = now()
+    _labtime = 0.0
     rate = 1.0
-    running = true
+    _running = true
     lastsleep = 0.0
-    return Labtime(realtime, labtime, rate, running, lastsleep)
+    return Labtime(_realtime, _labtime, rate, _running, lastsleep)
 end
+
+"""Returns variable indicating whether labtime is running."""
+function isrunning(labtime::Labtime)
+    return labtime._running
+end
+
 import Base.time
-function time(lt::Labtime)
-    if lt.running
-        elapsed = time() - lt.realtime
-        return lt.labtime + lt.rate * elapsed
+
+"""Return current labtime."""
+ function time(labtime::Labtime)
+    if isrunning(labtime)
+        elapsed = now() - labtime._realtime
+        seconds = Dates.toms(elapsed) / Dates.toms(Second(1)) 
+        return labtime._labtime + labtime._rate * seconds
     else
-        return lt.labtime
+        return labtime._labtime
     end
 end
 
+"""Set the rate of labtime relative to real time."""
 function set_rate!(lt::Labtime, rate::Float64=1.0)
     if rate <= 0
         throw(ArgumentError("Labtime rates must be positive."))
     end
-    lt.labtime = tclabtime(lt)
-    lt.realtime = time()
-    lt.rate = rate
+    lt._labtime = time(lt)  # 更新当前 labtime 基于现有 rate 和时间
+    lt._realtime = now()    # 重置时间基点
+    lt._rate = rate         # 设置新的速率
 end
 
+"""Return the rate of labtime relative to real time."""
 function get_rate(lt::Labtime)
-    return lt.rate
+    return lt._rate
 end
 
 # function sleep(lt::Labtime, delay::Float64)
