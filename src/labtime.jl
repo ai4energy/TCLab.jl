@@ -9,12 +9,7 @@ mutable struct Labtime
 end
 
 function Labtime()
-    _realtime = now()
-    _labtime = 0.0
-    rate = 1.0
-    _running = true
-    lastsleep = 0.0
-    return Labtime(_realtime, _labtime, rate, _running, lastsleep)
+    return Labtime(now(), 0.0, 1.0, true, 0.0)
 end
 
 """Returns variable indicating whether labtime is running."""
@@ -25,7 +20,7 @@ end
 import Base.time
 
 """Return current labtime."""
- function time(labtime::Labtime)
+function Base.time(labtime::Labtime)
     if isrunning(labtime)
         elapsed = now() - labtime._realtime
         seconds = Dates.toms(elapsed) / Dates.toms(Second(1)) 
@@ -60,27 +55,27 @@ end
 #     end
 # end
 
-function stop(lt::Labtime)
-    lt.labtime = time(lt)
-    lt.realtime = time()
-    lt.running = false
-end
+# function stop(lt::Labtime)
+#     lt.labtime = time(lt)
+#     lt.realtime = time()
+#     lt.running = false
+# end
 
-function start(lt::Labtime)
-    lt.realtime = time()
-    lt.running = true
-end
+# function start(lt::Labtime)
+#     lt.realtime = time()
+#     lt.running = true
+# end
 
-function reset(lt::Labtime, val::Float64=0.0)
-    lt.labtime = val
-    lt.realtime = time()
-end
+# function reset(lt::Labtime, val::Float64=0.0)
+#     lt.labtime = val
+#     lt.realtime = time()
+# end
 
-labtime = Labtime()
+# labtime = Labtime()
 
-function setnow(tnow::Float64=0.0)
-    reset(labtime, tnow)
-end
+# function setnow(tnow::Float64=0.0)
+#     reset(labtime, tnow)
+# end
 
 # function clock(period::Float64, step::Float64=1.0, tol::Float64=Inf, adaptive::Bool=true)
 #     start_time = time(labtime)

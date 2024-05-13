@@ -51,6 +51,7 @@ struct AlreadyConnectedError <: Exception
 end
 
 include("utils.jl")
+include("labtime.jl")
 
 """
 TCLab Digital Twin
